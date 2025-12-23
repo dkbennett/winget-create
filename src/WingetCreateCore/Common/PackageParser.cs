@@ -47,6 +47,15 @@ namespace Microsoft.WingetCreateCore
             "nullsoft",
         };
 
+        private static readonly string[] FontInstallerExtensions =
+        [
+            ".otf",         // OpenType Font
+            ".ttf",         // TrueType Font
+            ".fnt",         // Font
+            ".ttc",         // TrueType Font Collection
+            ".otc",         // OpenType Font Collection
+        ];
+
         private static HttpClient httpClient = new()
         {
             DefaultRequestHeaders =
@@ -381,6 +390,20 @@ namespace Microsoft.WingetCreateCore
         }
 
         /// <summary>
+        /// Determines if a given installer path is a Font installer.
+        /// </summary>
+        /// <param name="installerPath">Installer path or filename.</param>
+        /// <returns>True if the installerPath is considered a font type.</returns>
+        public static bool IsFontInstaller(string installerPath) => FontInstallerExtensions.Any(s => installerPath.Contains(s, StringComparison.InvariantCultureIgnoreCase));
+
+        /// <summary>
+        /// Determines if a given installer path is a Font installer.
+        /// </summary>
+        /// <param name="installerPaths">List of installer paths.</param>
+        /// <returns>True if the installerPath is considered a font type.</returns>
+        public static bool IsFontPackage(List<string> installerPaths) => installerPaths.All(i => IsFontInstaller(i));
+
+        /// <summary>
         /// Finds an existing installer that matches the new installer by checking the installerType and the following:
         /// 1. Matching based on architecture specified as an override if present.
         /// 2. Matching based on architecture detected from URL string if present.
@@ -594,6 +617,22 @@ namespace Microsoft.WingetCreateCore
 
                 foreach (NestedInstallerFile nestedInstallerFile in installerMetadata.NestedInstallerFiles)
                 {
+                    if (IsFontInstaller(nestedInstallerFile.RelativeFilePath))
+                    {
+                        // Skip adding duplicate NestedInstallerFile object.
+                        if (baseInstaller.NestedInstallerFiles.Any(i => i.RelativeFilePath == nestedInstallerFile.RelativeFilePath))
+                        {
+                            continue;
+                        }
+
+                        baseInstaller.NestedInstallerFiles.Add(new NestedInstallerFile
+                        {
+                            RelativeFilePath = nestedInstallerFile.RelativeFilePath,
+                        });
+
+                        continue;
+                    }
+
                     // Skip adding duplicate NestedInstallerFile object.
                     if (baseInstaller.NestedInstallerFiles.Any(i =>
                         i.RelativeFilePath == nestedInstallerFile.RelativeFilePath &&
@@ -618,6 +657,14 @@ namespace Microsoft.WingetCreateCore
             else
             {
                 installerPaths.Add(packageFile);
+            }
+
+            // If every installer path is a font this is a font package.
+            var isFontPackage = IsFontPackage(installerPaths);
+            if (isFontPackage)
+            {
+                SetFontInstallerType(baseInstaller, newInstallers);
+                return true;
             }
 
             Architecture? nestedArchitecture = null;
@@ -883,6 +930,13 @@ namespace Microsoft.WingetCreateCore
             {
                 return false;
             }
+        }
+
+        private static void SetFontInstallerType(Installer baseInstaller, List<Installer> newInstallers)
+        {
+            SetInstallerType(baseInstaller, InstallerType.Font);
+            baseInstaller.Architecture = Architecture.Neutral;
+            newInstallers.Add(baseInstaller);
         }
 
         /// <summary>

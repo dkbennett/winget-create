@@ -170,7 +170,8 @@ namespace Microsoft.WingetCreateCLI.Commands
                     this.OutputDir = Directory.GetCurrentDirectory();
                 }
 
-                string manifestDirectoryPath = SaveManifestDirToLocalPath(originalManifests, this.OutputDir);
+                // TODO: Font root support.
+                string manifestDirectoryPath = SaveManifestDirToLocalPath(originalManifests, WingetCreateCore.Common.Constants.WingetManifestRoot, this.OutputDir);
 
                 if (ValidateManifest(manifestDirectoryPath, this.Format))
                 {
