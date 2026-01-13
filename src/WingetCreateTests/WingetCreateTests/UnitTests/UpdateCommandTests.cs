@@ -320,6 +320,38 @@ namespace Microsoft.WingetCreateUnitTests
         }
 
         /// <summary>
+        /// Verify that update command warns if submit arguments are provided without submit flag being set.
+        /// </summary>
+        /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
+        [Test]
+        public async Task UpdateChecksMissingSubmitFlagWithNoOpenPR()
+        {
+            string packageId = "TestPublisher.TestPackageId";
+            string version = "1.2.3.4";
+
+            UpdateCommand command = new UpdateCommand
+            {
+                Id = packageId,
+                Version = version,
+                InstallerUrls = new[] { "https://fakedomain.com/fakeinstaller.exe" },
+                SubmitToGitHub = false,
+                NoOpenPRInBrowser = true,
+            };
+
+            try
+            {
+                await command.Execute();
+            }
+            catch (Exception)
+            {
+                // Expected exception
+            }
+
+            string result = this.sw.ToString();
+            Assert.That(result, Does.Contain(Resources.SubmitFlagMissing_Warning), "Submit flag missing warning should be shown");
+        }
+
+        /// <summary>
         /// Since some installers are incorrectly labeled on the manifest, resort to using the installer URL to find matches.
         /// This unit test uses a msi installer that is not an arm64 installer, but because the installer URL includes "arm64", it should find a match.
         /// </summary>
@@ -995,6 +1027,19 @@ namespace Microsoft.WingetCreateUnitTests
         }
 
         /// <summary>
+        /// Ensures that all fields from the YAML Singleton v1.12 manifest can be deserialized and updated correctly.
+        /// </summary>
+        /// <returns>A <see cref="Task"/> representing the result of the asynchronous operation.</returns>
+        [Test]
+        public async Task UpdateFullYamlSingletonVersion1_12()
+        {
+            TestUtils.InitializeMockDownloads(TestConstants.TestZipInstaller, TestConstants.TestExeInstaller);
+            (UpdateCommand command, var initialManifestContent) = GetUpdateCommandAndManifestData("TestPublisher.FullYamlSingleton1_12", null, this.tempPath, null);
+            var updatedManifests = await RunUpdateCommand(command, initialManifestContent);
+            ClassicAssert.IsNotNull(updatedManifests, "Command should have succeeded");
+        }
+
+        /// <summary>
         /// Ensures that all fields from the JSON Singleton v1.1 manifest can be deserialized and updated correctly.
         /// </summary>
         /// <returns>A <see cref="Task"/> representing the result of the asynchronous operation.</returns>
@@ -1099,13 +1144,26 @@ namespace Microsoft.WingetCreateUnitTests
         }
 
         /// <summary>
+        /// Ensures that all fields from the Singleton JSON v1.12 manifest can be deserialized and updated correctly.
+        /// </summary>
+        /// <returns>A <see cref="Task"/> representing the result of the asynchronous operation.</returns>
+        [Test]
+        public async Task UpdateFullJsonSingletonVersion1_12()
+        {
+            TestUtils.InitializeMockDownloads(TestConstants.TestZipInstaller, TestConstants.TestExeInstaller);
+            (UpdateCommand command, var initialManifestContent) = GetUpdateCommandAndManifestData("TestPublisher.FullJsonSingleton1_12", null, this.tempPath, null, manifestFormat: ManifestFormat.Json);
+            var updatedManifests = await RunUpdateCommand(command, initialManifestContent);
+            ClassicAssert.IsNotNull(updatedManifests, "Command should have succeeded");
+        }
+
+        /// <summary>
         /// Ensures that version specific fields are reset after an update when using YAML manifests.
         /// </summary>
         /// <returns>A <see cref="Task"/> representing the result of the asynchronous operation.</returns>
         [Test]
         public async Task UpdateResetsVersionSpecificFields_Yaml()
         {
-            TestUtils.InitializeMockDownloads(TestConstants.TestExeInstaller);
+            TestUtils.InitializeMockDownloads(TestConstants.TestZipInstaller, TestConstants.TestExeInstaller);
             (UpdateCommand command, var initialManifestContent) = GetUpdateCommandAndManifestData("TestPublisher.FullYamlSingleton1_1", null, this.tempPath, null);
             var updatedManifests = await RunUpdateCommand(command, initialManifestContent);
             ClassicAssert.IsNotNull(updatedManifests, "Command should have succeeded");
